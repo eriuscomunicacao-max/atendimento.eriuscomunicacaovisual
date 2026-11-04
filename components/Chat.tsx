@@ -32,6 +32,19 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const SILENT =
   "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
 
+function Avatar({ big = false, pulse = false }: { big?: boolean; pulse?: boolean }) {
+  const [ok, setOk] = useState(true);
+  return (
+    <div className={`avatar${big ? " big" : ""}${pulse ? " pulse" : ""}`}>
+      {ok ? (
+        <img src="https://crssayomoubwzhburllo.supabase.co/storage/v1/object/public/foto/ana.png" alt={CONFIG.assistantName} onError={() => setOk(false)} />
+      ) : (
+        CONFIG.assistantName[0]
+      )}
+    </div>
+  );
+}
+
 export default function Chat() {
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
@@ -281,13 +294,13 @@ export default function Chat() {
         {
           text: `Ficou ${brl(q.todayPrice)} pelas ${q.deliveredQty} unidades (${q.billedQty} + ${q.deliveredQty - q.billedQty} de brinde), com frete grátis${where}.`,
         },
-        { text: `Promoção de Black Friday válida até dia ${q.promoDay} de novembro. Valor estimado, pode ajustar se a arte ou o acabamento fugirem do padrão.` },
+        { text: `Promoção de Black Friday válida até dia ${q.promoDay} de novembro.` },
       ];
     } else if (q.todayActive) {
       lines = [
         ...freeNote,
         { text: `${first()}, seu orçamento ficaria ${brl(q.fullPrice)}, mas se a gente fechar hoje eu consigo por ${brl(q.todayPrice)}.` },
-        { text: `São ${q.qty} etiquetas ${q.size} cm, ${freteTxt}${where}. Valor estimado, pode ajustar se a arte ou o acabamento fugirem do padrão.` },
+        { text: `São ${q.qty} etiquetas ${q.size} cm, ${freteTxt}${where}.` },
       ];
     } else {
       lines = [
@@ -336,7 +349,7 @@ export default function Chat() {
       `Etiqueta: ${q.size} cm`,
       `Quantidade: ${q.deliveredQty} un${q.bf ? ` (${q.billedQty} + ${q.deliveredQty - q.billedQty} de brinde, Black Friday)` : ""}`,
       data.current.city ? `Cidade: ${data.current.city}${data.current.uf ? "/" + data.current.uf : ""} (CEP ${data.current.cep})` : `CEP: ${data.current.cep}`,
-      `Valor estimado: ${brl(price)} (${q.shipping === 0 ? "frete grátis" : "frete incluso"})`,
+      `Valor: ${brl(price)} (${q.shipping === 0 ? "frete grátis" : "frete incluso"})`,
       s.utm_campaign ? `Origem: ${s.utm_campaign}` : "",
     ].filter(Boolean);
     return lines.join("\n");
@@ -398,7 +411,7 @@ export default function Chat() {
     return (
       <main className="gate">
         <div className="avatar-slot">
-          <div className="avatar big pulse">{CONFIG.assistantName[0]}</div>
+          <Avatar big pulse />
         </div>
         <h1>Seu orçamento de etiquetas em 1 minuto</h1>
         <p>Sem esperar resposta. A {CONFIG.assistantName} te atende agora.</p>
@@ -423,7 +436,7 @@ export default function Chat() {
     <main className="chat">
       <header className="head">
         <div className="avatar-slot">
-          <div className="avatar">{CONFIG.assistantName[0]}</div>
+          <Avatar />
         </div>
         <div className="who">
           <b>{CONFIG.assistantName} · {CONFIG.brand}</b>
