@@ -4,7 +4,7 @@ export const CONFIG = {
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP || "5519900000000",
 
   // Precisa bater com as chaves de lib/prices.ts
-  sizes: ["2x2", "3x3", "4x4", "5x5", "6x6", "7x7", "8x8", "10x10"],
+  sizes: ["2x2", "3x3", "4x4", "5x5", "6x6", "8x8", "10x10"],
 
   shipping: 30,
   fullPriceExtra: 20, // valor cheio = tabela + frete + este extra
