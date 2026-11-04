@@ -27,6 +27,14 @@ export function getPromo(now = new Date()): Promo {
   return { active: deadline !== null, deadline, year: y };
 }
 
+const normText = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+export function isFreeShipping(city?: string | null) {
+  if (!city) return false;
+  return CONFIG.freeShippingCities.map(normText).includes(normText(city));
+}
+
 const money = (n: number) => {
   const r = CONFIG.roundStep;
   const v = r > 0 ? Math.round(n / r) * r : n;
@@ -51,7 +59,7 @@ export type QuoteErr = { ok: false; reason: "min" | "custom" };
 export type QuoteResult = QuoteOk | QuoteErr;
 
 // ÚNICA função de cálculo do sistema (roda só no servidor).
-export function buildQuote(a: { size: string; qty: number; bf: boolean; promo: Promo }): QuoteResult {
+export function buildQuote(a: { size: string; qty: number; bf: boolean; promo: Promo; freeShipping?: boolean }): QuoteResult {
   let qty = Number(a.qty);
   if (!Number.isFinite(qty) || qty < CONFIG.minQty) return { ok: false, reason: "min" };
   qty = Math.ceil(qty / CONFIG.qtyStep) * CONFIG.qtyStep;
@@ -64,7 +72,7 @@ export function buildQuote(a: { size: string; qty: number; bf: boolean; promo: P
   const table = tableValue(a.size, billedQty);
   if (table === null) return { ok: false, reason: "custom" };
 
-  const shipping = useBf ? 0 : CONFIG.shipping;
+  const shipping = useBf || a.freeShipping ? 0 : CONFIG.shipping;
   const todayPrice = money(table + shipping);
   const fullPrice = useBf ? todayPrice : money(table + shipping + CONFIG.fullPriceExtra);
 

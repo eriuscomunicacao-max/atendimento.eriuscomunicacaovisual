@@ -32,7 +32,7 @@ export const S = {
   round: (from: number, to: number): Line[] => [
     { text: `Trabalhamos em múltiplos de ${CONFIG.qtyStep}, então ajustei de ${from} para ${to} unidades.`, audio: "" },
   ],
-  askCep: (): Line[] => [{ text: "Anotado. Agora me passa seu CEP pra eu calcular a entrega.", audio: "" }],
+  askCep: (): Line[] => [{ text: "Me passe seu CEP para ver se está dentro do raio de frete grátis, por favor.", audio: "" }],
   calc: (): Line[] => [{ text: "Só um minutinho que eu vou calcular...", audio: "" }],
   bfOffer: (n: string, day: number | null): Line[] => [
     { text: `Antes de fechar, ${n}: a gente está com a promoção de Black Friday${day ? `, válida até dia ${day} de novembro` : ""}.`, audio: "" },
@@ -43,9 +43,9 @@ export const S = {
   ],
   recalc: (): Line[] => [{ text: "Só um instante, vou recalcular...", audio: "" }],
   finish: (n: string): Line[] => [
-    { text: `Fechado, ${n}! Vou te levar pro WhatsApp com tudo preenchido. É só enviar a mensagem que eu continuo por lá.`, audio: "" },
+    { text: `Fechado, ${n}! Seu orçamento está pronto. Toque no botão abaixo para confirmar e enviar a arte no WhatsApp.`, audio: "" },
   ],
   custom: (): Line[] => [
-    { text: "Esse caso pede um orçamento personalizado. Vou te levar pro WhatsApp com o que você já informou.", audio: "" },
+    { text: "Esse caso pede um orçamento personalizado. Toque no botão abaixo para continuar no WhatsApp com o que você já informou.", audio: "" },
   ],
 };

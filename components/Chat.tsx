@@ -7,7 +7,7 @@ import { waLink } from "@/lib/whatsapp";
 import { greeting, S } from "@/lib/script";
 import type { Line } from "@/lib/script";
 
-type Step = "idle" | "name" | "phone" | "size" | "qty" | "cep" | "accept" | "bf";
+type Step = "idle" | "name" | "phone" | "size" | "qty" | "cep" | "accept" | "bf" | "confirm";
 type Msg = { id: number; from: "bot" | "user"; text: string };
 type Quote = {
   ok: true;
@@ -42,12 +42,13 @@ export default function Chat() {
   const [err, setErr] = useState("");
   const [muted, setMuted] = useState(false);
   const [quote, setQuote] = useState<Quote | null>(null);
-  const [waUrl, setWaUrl] = useState("");
 
   const data = useRef<Data>({});
   const leadId = useRef<string | null>(null);
   const quoteRef = useRef<Quote | null>(null);
   const offered = useRef(false);
+  const pendingWa = useRef<{ url: string; custom: boolean } | null>(null);
+  const saveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const idc = useRef(0);
   const audio = useRef<HTMLAudioElement | null>(null);
   const mutedRef = useRef(false);
@@ -65,21 +66,33 @@ export default function Chat() {
   async function say(lines: Line[]) {
     for (const l of lines) {
       setTyping(true);
-      await wait(Math.min(700 + l.text.length * 22, 2000));
+      await wait(Math.min(1600 + l.text.length * 45, 4500));
       setTyping(false);
       push("bot", l.text);
       if (l.audio && !mutedRef.current && audio.current) {
         audio.current.src = l.audio;
         audio.current.play().catch(() => {});
       }
-      await wait(350);
+      await wait(800);
     }
   }
 
-  async function saveLead(
+  type SaveResp = { id?: string; quote?: QuoteResp };
+
+  // Uma chamada por vez, na ordem, para o id do lead existir antes da próxima.
+  function saveLead(
     patch: Record<string, unknown>,
     opts: { wantQuote?: boolean; bf?: boolean } = {}
-  ): Promise<{ id?: string; quote?: QuoteResp }> {
+  ): Promise<SaveResp> {
+    const run = saveQueue.current.then(() => doSaveLead(patch, opts));
+    saveQueue.current = run.catch(() => {});
+    return run;
+  }
+
+  async function doSaveLead(
+    patch: Record<string, unknown>,
+    opts: { wantQuote?: boolean; bf?: boolean } = {}
+  ): Promise<SaveResp> {
     try {
       const r = await fetch("/api/lead", {
         method: "POST",
@@ -238,9 +251,12 @@ export default function Chat() {
     if (city) await say([{ text: `Vi que você é de ${city}. Boa!` }]);
 
     const [resp] = await Promise.all([
-      saveLead({ cep, city, uf, status: "quoted" }, { wantQuote: true }),
+      saveLead(
+        { cep, city, uf, size: data.current.size, qty: data.current.qty, status: "quoted" },
+        { wantQuote: true }
+      ),
       say(S.calc()),
-      wait(1800),
+      wait(4500),
     ]);
 
     const q = resp.quote;
@@ -255,6 +271,10 @@ export default function Chat() {
     track("InitiateCheckout", { value: price, custom: { content_name: `${q.size}cm`, num_items: q.deliveredQty } });
 
     const where = data.current.city ? ` para ${data.current.city}` : "";
+    const free = q.shipping === 0;
+    const freteTxt = free ? "com frete grátis" : "com frete incluso";
+    const freeNote: Line[] =
+      free && !q.bf ? [{ text: "Boa notícia: seu CEP está dentro do raio de frete grátis!" }] : [];
     let lines: Line[];
     if (q.bf) {
       lines = [
@@ -265,12 +285,14 @@ export default function Chat() {
       ];
     } else if (q.todayActive) {
       lines = [
+        ...freeNote,
         { text: `${first()}, seu orçamento ficaria ${brl(q.fullPrice)}, mas se a gente fechar hoje eu consigo por ${brl(q.todayPrice)}.` },
-        { text: `São ${q.qty} etiquetas ${q.size} cm, com frete incluso${where}. Valor estimado, pode ajustar se a arte ou o acabamento fugirem do padrão.` },
+        { text: `São ${q.qty} etiquetas ${q.size} cm, ${freteTxt}${where}. Valor estimado, pode ajustar se a arte ou o acabamento fugirem do padrão.` },
       ];
     } else {
       lines = [
-        { text: `Seu orçamento fica ${brl(q.fullPrice)}, com frete incluso${where}. O valor especial vale só no dia do orçamento e já encerrou.` },
+        ...freeNote,
+        { text: `Seu orçamento fica ${brl(q.fullPrice)}, ${freteTxt}${where}. O valor especial vale só no dia do orçamento e já encerrou.` },
       ];
     }
     await say(lines);
@@ -293,7 +315,7 @@ export default function Chat() {
   async function recalc() {
     setStep("idle");
     push("user", "Recalcular valor");
-    const [resp] = await Promise.all([saveLead({}, { wantQuote: true, bf: true }), say(S.recalc()), wait(1500)]);
+    const [resp] = await Promise.all([saveLead({ size: data.current.size, qty: data.current.qty }, { wantQuote: true, bf: true }), say(S.recalc()), wait(3500)]);
     const q = resp.quote;
     if (!q || !q.ok) return customWhatsApp();
     await showQuote(q);
@@ -314,26 +336,16 @@ export default function Chat() {
       `Etiqueta: ${q.size} cm`,
       `Quantidade: ${q.deliveredQty} un${q.bf ? ` (${q.billedQty} + ${q.deliveredQty - q.billedQty} de brinde, Black Friday)` : ""}`,
       data.current.city ? `Cidade: ${data.current.city}${data.current.uf ? "/" + data.current.uf : ""} (CEP ${data.current.cep})` : `CEP: ${data.current.cep}`,
-      `Valor estimado: ${brl(price)} (${q.bf ? "frete grátis" : "frete incluso"})`,
+      `Valor estimado: ${brl(price)} (${q.shipping === 0 ? "frete grátis" : "frete incluso"})`,
       s.utm_campaign ? `Origem: ${s.utm_campaign}` : "",
     ].filter(Boolean);
     return lines.join("\n");
   }
 
   async function finish(q: Quote) {
-    const price = q.todayActive ? q.todayPrice : q.fullPrice;
-    track("Lead", {
-      value: price,
-      phone: data.current.phone,
-      name: data.current.name,
-      custom: { content_name: `${q.size}cm`, num_items: q.deliveredQty },
-    });
-    saveLead({ status: "whatsapp" });
+    pendingWa.current = { url: waLink(CONFIG.whatsapp, buildMessage(q)), custom: false };
     await say(S.finish(first()));
-    const url = waLink(CONFIG.whatsapp, buildMessage(q));
-    setWaUrl(url);
-    await wait(900);
-    window.location.href = url;
+    setStep("confirm");
   }
 
   async function customWhatsApp() {
@@ -348,12 +360,28 @@ export default function Chat() {
     ]
       .filter(Boolean)
       .join("\n");
-    track("Contact");
+    pendingWa.current = { url: waLink(CONFIG.whatsapp, text), custom: true };
+    setStep("confirm");
+  }
+
+  // Só abre o WhatsApp quando a pessoa toca no botão verde.
+  function confirmWhatsApp() {
+    const p = pendingWa.current;
+    if (!p) return;
+    const q = quoteRef.current;
+    if (p.custom || !q) {
+      track("Contact");
+    } else {
+      const price = q.todayActive ? q.todayPrice : q.fullPrice;
+      track("Lead", {
+        value: price,
+        phone: data.current.phone,
+        name: data.current.name,
+        custom: { content_name: `${q.size}cm`, num_items: q.deliveredQty },
+      });
+    }
     saveLead({ status: "whatsapp" });
-    const url = waLink(CONFIG.whatsapp, text);
-    setWaUrl(url);
-    await wait(900);
-    window.location.href = url;
+    window.location.href = p.url;
   }
 
   function directWhatsApp() {
@@ -478,7 +506,11 @@ export default function Chat() {
           </>
         )}
 
-        {waUrl && <a className="cta" href={waUrl}>Abrir WhatsApp</a>}
+        {step === "confirm" && (
+          <button className="cta green" onClick={confirmWhatsApp}>
+            Confirmar e enviar a arte no WhatsApp
+          </button>
+        )}
 
         <button className="link" onClick={directWhatsApp}>Prefiro falar direto no WhatsApp</button>
       </footer>

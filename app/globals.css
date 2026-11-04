@@ -95,3 +95,5 @@ input { font: inherit; }
 .consent { color: #8ea2cf; font-size: 12px; }
 .err { color: #fca5a5; font-size: 13px; }
 .foot .cta { max-width: none; }
+
+.cta.green { background: #16a34a; box-shadow: 0 10px 30px rgba(22, 163, 74, 0.35); }

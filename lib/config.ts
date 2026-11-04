@@ -7,6 +7,9 @@ export const CONFIG = {
   sizes: ["2x2", "3x3", "4x4", "5x5", "6x6", "8x8", "10x10"],
 
   shipping: 30,
+  // Cidades dentro do raio de frete grátis (escreva o nome da cidade, ex.: "Casa Branca").
+  // Vazio = ninguém tem frete grátis (exceto na oferta Black Friday).
+  freeShippingCities: [] as string[],
   fullPriceExtra: 20, // valor cheio = tabela + frete + este extra
   roundStep: 0, // 0 = centavos; 5 = arredonda de 5 em 5 reais
 
