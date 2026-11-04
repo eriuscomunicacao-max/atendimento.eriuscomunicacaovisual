@@ -97,3 +97,4 @@ input { font: inherit; }
 .foot .cta { max-width: none; }
 
 .cta.green { background: #16a34a; box-shadow: 0 10px 30px rgba(22, 163, 74, 0.35); }
+.avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
